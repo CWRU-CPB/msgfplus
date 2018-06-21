@@ -14,6 +14,14 @@ public class ConcurrentMSGFPlus {
         SearchParams params;
         List<MSGFPlusMatch> resultList;
         private final int taskNum;
+        
+        /* +++Start CWRU-CPB 
+         * Store the allow prefix matches search parameter value in object
+         * property for passing to DBScanner
+         **/
+        private final boolean allowPrefixMatches;
+        /* +++End CWRU-CPB */
+        
         private ProgressData progress;
 
         @Override
@@ -27,12 +35,7 @@ public class ConcurrentMSGFPlus {
         }
 
         public RunMSGFPlus(
-                ScoredSpectraMap specScanner,
-                CompactSuffixArray sa,
-                SearchParams params,
-                List<MSGFPlusMatch> resultList,
-                int taskNum
-        ) {
+                ScoredSpectraMap specScanner, CompactSuffixArray sa, SearchParams params, List<MSGFPlusMatch> resultList, int taskNum) {
             this.specScanner = specScanner;
             this.params = params;
             this.scanner = new DBScanner(
@@ -49,6 +52,13 @@ public class ConcurrentMSGFPlus {
             );
             this.resultList = resultList;
             this.taskNum = taskNum;
+            
+            /* +++Start CWRU-CPB 
+             * Extract value of allow prefix matches search parameter.
+             */
+            this.allowPrefixMatches = params.getPrefixMatchesAllowed();
+            /* +++End CWRU-CPB */
+            
             progress = null;
         }
 
@@ -107,7 +117,11 @@ public class ConcurrentMSGFPlus {
             if (Thread.currentThread().isInterrupted()) {
                 return;
             }
-            scanner.dbSearch(nnet);
+            /* +++Start CWRU-CPB call DBScanner with new parameter controlling
+             * prefix matching */
+            scanner.dbSearch(nnet, allowPrefixMatches);
+            /* +++End CWRU-CPB */
+            
             if (Thread.currentThread().isInterrupted()) {
                 return;
             }

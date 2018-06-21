@@ -71,7 +71,6 @@ public class Enzyme implements ParamObject {
     private Enzyme(String name, String residues, boolean isNTerm, String description, String psiCvAccession) {
         this.name = name;
         this.description = description;
-
         /*
          * null is passed as the residue string for both non-specific and
          * "no cleavage", so in order to distinguish the desired behavior we

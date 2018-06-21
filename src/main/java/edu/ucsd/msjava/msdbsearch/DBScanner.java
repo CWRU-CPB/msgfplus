@@ -155,31 +155,36 @@ public class DBScanner {
         return output;
     }
 
-    public void dbSearchCTermEnzymeNoMod(int numberOfAllowableNonEnzymaticTermini, boolean verbose) {
-        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, verbose);
+    /* +++Start CWRU-CPB
+     *
+     * Added the allowPrefixMatches boolean flag to the following 5 methods.
+     *
+     */
+    public void dbSearchCTermEnzymeNoMod(int numberOfAllowableNonEnzymaticTermini, boolean verbose, boolean allowPrefixMatches) {
+        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, verbose, allowPrefixMatches);
     }
 
-    public void dbSearchCTermEnzyme(int numberOfAllowableNonEnzymaticTermini, boolean verbose) {
-        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, verbose);
+    public void dbSearchCTermEnzyme(int numberOfAllowableNonEnzymaticTermini, boolean verbose, boolean allowPrefixMatches) {
+        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, verbose, allowPrefixMatches);
     }
 
-    public void dbSearchNTermEnzyme(int numberOfAllowableNonEnzymaticTermini, boolean verbose) {
-        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, verbose);
+    public void dbSearchNTermEnzyme(int numberOfAllowableNonEnzymaticTermini, boolean verbose, boolean allowPrefixMatches) {
+        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, verbose, allowPrefixMatches);
     }
 
-    public void dbSearchNoEnzyme(boolean verbose) {
-        dbSearch(2, 0, size, verbose);
+    public void dbSearchNoEnzyme(boolean verbose, boolean allowPrefixMatches) {
+        dbSearch(2, 0, size, verbose, allowPrefixMatches);
     }
 
-    public void dbSearch(int numberOfAllowableNonEnzymaticTermini) {
-        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, true);
+    public void dbSearch(int numberOfAllowableNonEnzymaticTermini, boolean allowPrefixMatches) {
+        dbSearch(numberOfAllowableNonEnzymaticTermini, 0, size, true, allowPrefixMatches);
     }
 
-    public void dbSearch(int numberOfAllowableNonEnzymaticTermini, int fromIndex, int toIndex, boolean verbose) {
+    public void dbSearch(int numberOfAllowableNonEnzymaticTermini, int fromIndex, int toIndex, boolean verbose, boolean allowPrefixMatches) {
         if (progress == null) {
             progress = new ProgressData();
         }
-
+        
         Map<SpecKey, PriorityQueue<DatabaseMatch>> curSpecKeyDBMatchMap = new HashMap<SpecKey, PriorityQueue<DatabaseMatch>>();
 
         CandidatePeptideGrid candidatePepGrid;
@@ -243,55 +248,110 @@ public class DBScanner {
                     return;
                 }
 
-                // lcp: shared prefix length
-                for (int peptideLength = minPeptideLength; peptideLength < prevMatchList.length; peptideLength++) {
-                    if (Thread.currentThread().isInterrupted()) {
-                        return;
+                /* +++Start CWRU-CPB
+                 * Per correspondence with the original author, it was confirmed
+                 * the purpose of the following loop is to leverage previous 
+                 * identifications of peptides that are prefixes of the
+                 * current peptide. The observed function is that it "short 
+                 * circuits" a previous match to a peptide that is a prefix of
+                 * the current peptide sequence under consideration.
+                 *
+                 * Example Database:
+                 *
+                 * >P1
+                 * AAA
+                 *
+                 * >P2
+                 * AAAKTTT
+                 *
+                 * Observed Behavior:
+                 * If "AAA" from P1 was matched on a previous iteration of the 
+                 * search and we are currently searching "AAAKTTT" from P2, 
+                 * this loop will assign a match to the subsequence "AAA" of 
+                 * "AAAKTTT" based on the previous match to "AAA" from P1 
+                 * without recomputing a match score.
+                 *
+                 * This became problematic when using a database of pre-digested 
+                 * proteins where missed cleavages were simulated during the 
+                 * digest. 
+                 *
+                 * Consider the example database above, where we have already 
+                 * matched P1. We do not want to match AAA of P2, because it is
+                 * intended to detect a peptide resulting from a missed 
+                 * cleavage.
+                 *
+                 * To account for this we added an additional argument to the
+                 * function prototype to disable the loop. A default value
+                 * of true has been propagated up-stream so that omitting the
+                 * switch on the command line results in identical behavior to
+                 * previous versions of the software.
+                 * */
+                if(allowPrefixMatches) {
+                /* +++End CWRU-CPB */
+                    
+                    // lcp: shared prefix length
+                    for (int peptideLength = minPeptideLength; peptideLength < prevMatchList.length; peptideLength++) {
+                        if (Thread.currentThread().isInterrupted()) {
+                            return;
+                        }
+
+                        if (lcp >= peptideLength + 2)    // peptide, N-term, C-term are shared
+                        {
+                            if (prevMatchList[peptideLength] != null) {
+                                for (DatabaseMatch m : prevMatchList[peptideLength]) {
+                                    m.addIndex(index);
+                                }
+                            }
+                        } else if (lcp == peptideLength + 1) {
+                            if (prevMatchList[peptideLength] != null) {
+                                for (DatabaseMatch m : prevMatchList[peptideLength]) {
+                                    if (Thread.currentThread().isInterrupted()) {
+                                        return;
+                                    }
+
+                                    if (!m.isProteinCTerm() || enzyme == null || enzyme.isNTerm() || numberOfAllowableNonEnzymaticTermini == 2) {
+                                        m.addIndex(index);
+                                        continue;
+                                    }
+
+                                    char pre = sequence.getCharAt(index);
+                                    if (numberOfAllowableNonEnzymaticTermini == 1 && enzyme.isCleavable(pre)) {
+                                        m.addIndex(index);
+                                        continue;
+                                    }
+
+                                    // C-term should be enzymatic
+                                    char cTermResidue = sequence.getCharAt(index + peptideLength);
+                                    if (enzyme.isCleavable(cTermResidue)) {
+                                        m.addIndex(index);
+                                        continue;
+                                    }
+
+                                    // post should be protein c term
+                                    char post = sequence.getCharAt(index + peptideLength + 1);
+                                    if (post == Constants.TERMINATOR_CHAR) {
+                                        m.addIndex(index);
+                                    }
+                                }
+                            }
+                        } else
+                            prevMatchList[peptideLength] = null;
                     }
-
-                    if (lcp >= peptideLength + 2)    // peptide, N-term, C-term are shared
-                    {
-                        if (prevMatchList[peptideLength] != null) {
-                            for (DatabaseMatch m : prevMatchList[peptideLength]) {
-                                m.addIndex(index);
-                            }
-                        }
-                    } else if (lcp == peptideLength + 1) {
-                        if (prevMatchList[peptideLength] != null) {
-                            for (DatabaseMatch m : prevMatchList[peptideLength]) {
-                                if (Thread.currentThread().isInterrupted()) {
-                                    return;
-                                }
-
-                                if (!m.isProteinCTerm() || enzyme == null || enzyme.isNTerm() || numberOfAllowableNonEnzymaticTermini == 2) {
-                                    m.addIndex(index);
-                                    continue;
-                                }
-
-                                char pre = sequence.getCharAt(index);
-                                if (numberOfAllowableNonEnzymaticTermini == 1 && enzyme.isCleavable(pre)) {
-                                    m.addIndex(index);
-                                    continue;
-                                }
-
-                                // C-term should be enzymatic
-                                char cTermResidue = sequence.getCharAt(index + peptideLength);
-                                if (enzyme.isCleavable(cTermResidue)) {
-                                    m.addIndex(index);
-                                    continue;
-                                }
-
-                                // post should be protein c term
-                                char post = sequence.getCharAt(index + peptideLength + 1);
-                                if (post == Constants.TERMINATOR_CHAR) {
-                                    m.addIndex(index);
-                                }
-                            }
-                        }
-                    } else
-                        prevMatchList[peptideLength] = null;
+                /* +++Start CWRU-CPB */
                 }
-
+                /* 
+                 * If the database contains pre-digested peptides, we set the
+                 * longest-common-prefix to 0 so that in the logic below, the
+                 * loop does not skip to the next iteration, and the search 
+                 * starts by looking at peptides of length 1 
+                 */
+                else {
+                    lcp = 0;
+                }
+                /* 
+                 * +++End CWRU-CPB 
+                 */
+                
                 if (lcp >= peptideLengthIndex + 2 ||
                         lcp == peptideLengthIndex + 1 && (enzyme == null || enzyme.isCTerm())) {
                     continue;
@@ -299,7 +359,7 @@ public class DBScanner {
                 {
                     char precedingAA = sequence.getCharAt(index);
                     isProteinNTerm = precedingAA == Constants.TERMINATOR_CHAR;
-
+                   
                     // determine neighboring N-term score
                     if (enzyme == null || enzyme.isNTerm()) {
                         nTermCleavageScore = 0;
@@ -504,7 +564,7 @@ public class DBScanner {
                                         DatabaseMatch dbMatch = new DatabaseMatch(index, (byte) (pepLength + 2), score, theoPeptideMass, nominalPeptideMass, specKey.getCharge(), candidatePepGrid.getPeptideSeq(j), scorer.getActivationMethodArr()).setProteinNTerm(isProteinNTerm).setProteinCTerm(isProteinCTerm);
                                         dbMatch.setNTermMetCleaved(isNTermMetCleaved);
                                         prevMatchQueue.add(dbMatch);
-
+                                        
                                         if (prevMatchQueue.size() < this.numPeptidesPerSpec) {
                                             for (DatabaseMatch m : removed)
                                                 prevMatchQueue.add(m);

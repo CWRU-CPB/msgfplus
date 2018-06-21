@@ -235,6 +235,25 @@ public class ParamManager {
         }
         addParameter(enzParam);
     }
+    
+    /* +++Start CWRU=CPB
+     * Add methods for adding a pre-digest enzyme to the parameter pool.
+     */
+    public void addPreDigestEnzymeParam() {
+        addPreDigestEnzymeParam(Enzyme.TRYPSIN);
+    }
+    
+    public void addPreDigestEnzymeParam(Enzyme defaulEnzyme) {
+        ObjectEnumParameter<Enzyme> enzParam = new ObjectEnumParameter<Enzyme>("pde", "Pre-digest EnzymeID");
+        Enzyme[] allEnzymes = Enzyme.getAllRegisteredEnzymes();
+        for (Enzyme e : allEnzymes) {
+            enzParam.registerObject(e);
+            if (e == defaulEnzyme)
+                enzParam.setDefault();
+        }
+        addParameter(enzParam);
+    }
+    /* +++End CWRU-CPB */
 
     public void addProtocolParam() {
         addProtocolParam(Protocol.AUTOMATIC);
@@ -308,6 +327,14 @@ public class ParamManager {
         addFragMethodParam(ActivationMethod.ASWRITTEN, true);
         addInstTypeParam();
         addEnzymeParam();
+        
+        /* +++Start CWRU-CPB
+         * Add default pre-digest enzyme.
+         */
+        addPreDigestEnzymeParam();
+        /* 
+         * +++End CWRU-CPB 
+         */
         addProtocolParam();
 
         EnumParameter nttParam = new EnumParameter("ntt", null, "Number of Tolerable Termini");
@@ -358,6 +385,18 @@ public class ParamManager {
         addExample("Example (high-precision): java -Xmx3500M -jar MSGFPlus.jar -s test.mzXML -d IPI_human_3.79.fasta -t 20ppm -ti -1,2 -ntt 2 -tda 1 -o testMSGFPlus.mzid");
         addExample("Example (low-precision): java -Xmx3500M -jar MSGFPlus.jar -s test.mzXML -d IPI_human_3.79.fasta -t 0.5Da,2.5Da -ntt 2 -tda 1 -o testMSGFPlus.mzid");
 
+        /* +++Start CWRU-CPB
+         * Added command line parameter to disable prefix matches so that only
+         * full peptides are scored. A full explanation of why this was added is
+         * in DBScanner.dbSearch where the parameter is used */
+        IntParameter prefixMatchesAllowedParam = new IntParameter("prefixMatchesAllowed", "1/0", "1: Prefixes of a peptide can be matched to previous hits (Default), 0: Only full peptides can be matched.");
+        prefixMatchesAllowedParam.defaultValue(1);
+        prefixMatchesAllowedParam.minValue(0);
+        addParameter(prefixMatchesAllowedParam);
+        /* 
+         * +++End CWRU-CPB 
+         */
+        
         // Hidden parameters
         FileParameter dbIndexDirParam = new FileParameter("dd", "DBIndexDir", "Path to the directory containing database index files");
         dbIndexDirParam.fileMustExist();
@@ -410,9 +449,16 @@ public class ParamManager {
         EnumParameter metCleavageParam = new EnumParameter("ignoreMetCleavage");
         metCleavageParam.registerEntry("consider protein N-term Met cleavage").setDefault();
         metCleavageParam.registerEntry("ignore protein N-term Met cleavage");
-        metCleavageParam.setHidden();
+        /* +++Start CWRU-CPB
+         * Unhide this parameter as we need to specify it as false when 
+         * searching a database of pre-digested peptides.
+         */
+        //metCleavageParam.setHidden();
+        /* 
+         * +++End CWRU-CPB
+         */
         addParameter(metCleavageParam);
-
+        
         IntParameter minDeNovoScoreParam = new IntParameter("minDeNovoScore", "MinDeNovoScore", "Minimum de Novo score, Default: " + Constants.MIN_DE_NOVO_SCORE);
         minDeNovoScoreParam.minValue(Integer.MIN_VALUE);
         minDeNovoScoreParam.defaultValue(Constants.MIN_DE_NOVO_SCORE);
@@ -459,7 +505,7 @@ public class ParamManager {
             enzParam.registerObject(e);
         }
         addParameter(enzParam);
-
+        
         // Protocol
         addProtocolParam();
 
@@ -745,6 +791,14 @@ public class ParamManager {
     public Enzyme getEnzyme() {
         return (Enzyme) ((ObjectEnumParameter<?>) getParameter("e")).getObject();
     }
+    
+    /* +++Start CWRU-CPB
+     * Added getter for pre-digest enzyme.
+     */
+    public Enzyme getPreDigestEnzyme() {
+        return (Enzyme) ((ObjectEnumParameter<?>) getParameter("pde")).getObject();
+    }
+    /* +++ END CWRU-CPB */
 
     public Protocol getProtocol() {
         return (Protocol) ((ObjectEnumParameter<?>) getParameter("protocol")).getObject();
@@ -753,6 +807,22 @@ public class ParamManager {
     public FileParameter getModFileParam() {
         return ((FileParameter) getParameter("mod"));
     }
+    
+    /* +++Start CWRU-CPB
+     * Add a method to get boolean values from the parameter manager to avoid
+     * comparing int values to 1 in code.
+     */
+    public boolean getBooleanValue(String key) {
+        Parameter param = this.getParameter(key);
+        if (param instanceof IntParameter)
+            return ((IntParameter) param).getValue().equals(1);
+        else {
+            System.err.println("[Error] in ParamManager.getIntValue: " + key + " is not an instance of IntParameter.");
+            System.exit(-1);
+            return false;
+        }
+    }
+    /* +++End CWRU-CPB */
 
     public int getIntValue(String key) {
         Parameter param = this.getParameter(key);

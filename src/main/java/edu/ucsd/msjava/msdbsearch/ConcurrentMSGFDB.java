@@ -30,24 +30,26 @@ public class ConcurrentMSGFDB {
         private final int fromIndex;
         private final int toIndex;
         private final int searchMode;
+        private final boolean allowPrefixMatches;
 
-        public RunDBSearch(final DBScanner scanner, final int numberOfAllowableNonEnzymaticTermini, final int searchMode, final int fromIndex, final int toIndex) {
+        public RunDBSearch(final DBScanner scanner, final int numberOfAllowableNonEnzymaticTermini, final int searchMode, final int fromIndex, final int toIndex, boolean allowPrefixMatches) {
             this.scanner = scanner;
             this.numberOfAllowableNonEnzymaticTermini = numberOfAllowableNonEnzymaticTermini;
             this.fromIndex = fromIndex;
             this.toIndex = toIndex;
             this.searchMode = searchMode;
+            this.allowPrefixMatches = allowPrefixMatches;
         }
 
         public void run() {
             if (searchMode == 1)
-                scanner.dbSearch(2, fromIndex, toIndex, true);
+                scanner.dbSearch(2, fromIndex, toIndex, true, allowPrefixMatches);
             else if (searchMode == 2)
-                scanner.dbSearch(numberOfAllowableNonEnzymaticTermini, fromIndex, toIndex, true);
+                scanner.dbSearch(numberOfAllowableNonEnzymaticTermini, fromIndex, toIndex, true, allowPrefixMatches);
             else if (searchMode == 3)
-                scanner.dbSearch(numberOfAllowableNonEnzymaticTermini, fromIndex, toIndex, true);
+                scanner.dbSearch(numberOfAllowableNonEnzymaticTermini, fromIndex, toIndex, true, allowPrefixMatches);
             else
-                scanner.dbSearch(numberOfAllowableNonEnzymaticTermini, fromIndex, toIndex, true);
+                scanner.dbSearch(numberOfAllowableNonEnzymaticTermini, fromIndex, toIndex, true, allowPrefixMatches);
         }
     }
 
@@ -78,21 +80,20 @@ public class ConcurrentMSGFDB {
         private final String specFileName;
         private final List<MSGFDBResultGenerator.DBMatch> gen;
         private final boolean replicateMergedResults;
-
+        
+        /*+++ Start CWRU-CPB
+         * Added this parameter to pass the DBScanner which is shared by MSGFDB
+         * and MSGFPlus. It is added/propagated to multiple locations in the
+         * source. The upstream constructor in MSGFDB passes a hard-coded value
+         * of true so that the behavior is identical to the original version.
+         */
+        private final boolean allowPrefixMatches;
+        /*
+         * +++End CWRU-CPB
+         */
+        
         public RunMSGFDB(
-                ScoredSpectraMap specScanner,
-                CompactSuffixArray sa,
-                Enzyme enzyme,
-                AminoAcidSet aaSet,
-                int numPeptidesPerSpec,
-                int minPeptideLength,
-                int maxPeptideLength,
-                int numberOfAllowableNonEnzymaticTermini,
-                boolean storeScoreDist,
-                List<MSGFDBResultGenerator.DBMatch> gen,
-                String specFileName,
-                boolean replicateMergedResults
-        ) {
+                ScoredSpectraMap specScanner, CompactSuffixArray sa, Enzyme enzyme, AminoAcidSet aaSet, int numPeptidesPerSpec, int minPeptideLength, int maxPeptideLength, int numberOfAllowableNonEnzymaticTermini, boolean storeScoreDist, List<MSGFDBResultGenerator.DBMatch> gen, String specFileName, boolean replicateMergedResults, boolean allowPrefixMatches) {
             this.specScanner = specScanner;
             this.scanner = new DBScanner(specScanner, sa, enzyme, aaSet, numPeptidesPerSpec, minPeptideLength, maxPeptideLength, Constants.NUM_VARIANTS_PER_PEPTIDE, 0, false);
             this.numberOfAllowableNonEnzymaticTermini = numberOfAllowableNonEnzymaticTermini;
@@ -100,7 +101,8 @@ public class ConcurrentMSGFDB {
             this.specFileName = specFileName;
             this.gen = gen;
             this.replicateMergedResults = replicateMergedResults;
-
+            this.allowPrefixMatches = allowPrefixMatches;
+            
             int searchMode = 0;
             if (enzyme == null || enzyme.getResidues() == null)
                 searchMode = 1;
@@ -132,13 +134,13 @@ public class ConcurrentMSGFDB {
             System.out.println(threadName + ": Database search...");
             scanner.setThreadName(threadName);
             if (searchMode == 1)
-                scanner.dbSearchNoEnzyme(true);
+                scanner.dbSearchNoEnzyme(true, allowPrefixMatches);
             else if (searchMode == 2)
-                scanner.dbSearchCTermEnzymeNoMod(numberOfAllowableNonEnzymaticTermini, true);
+                scanner.dbSearchCTermEnzymeNoMod(numberOfAllowableNonEnzymaticTermini, true, allowPrefixMatches);
             else if (searchMode == 3)
-                scanner.dbSearchNTermEnzyme(numberOfAllowableNonEnzymaticTermini, true);
+                scanner.dbSearchNTermEnzyme(numberOfAllowableNonEnzymaticTermini, true, allowPrefixMatches);
             else
-                scanner.dbSearchCTermEnzyme(numberOfAllowableNonEnzymaticTermini, true);
+                scanner.dbSearchCTermEnzyme(numberOfAllowableNonEnzymaticTermini, true, allowPrefixMatches);
             System.out.print(threadName + ": Database search finished ");
             System.out.format("(elapsed time: %.2f sec)\n", (float) ((System.currentTimeMillis() - time) / 1000));
 

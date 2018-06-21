@@ -285,7 +285,10 @@ public class MSGFDB {
                         !useTDA,
                         resultList,
                         specFile.getName(),
-                        replicateMergedResults
+                        replicateMergedResults, 
+                        true /* CWRU-CPB: passing allowPrefixMatches=true 
+                              * makes this constructor call identical to 
+                              * previous versions */
                 );
                 executor.execute(msgfdbExecutor);
             }

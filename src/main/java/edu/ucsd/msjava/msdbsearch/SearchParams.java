@@ -50,7 +50,25 @@ public class SearchParams {
     private int minNumPeaksPerSpectrum;
     private int minDeNovoScore;
     private double chargeCarrierMass;
-
+    
+    /* +++Start CWRU-CPB
+     * 1) Added search parameter to indicate whether identifications may or may
+     *    not be assigned to all prefixes of peptides that have the same 
+     *    sequence as the identified (matched) sequence. See the dbSearch method
+     *    of DBScanner.java for where this takes effect. 
+     * 2) Added a pre-digest enzyme for when using a databse of pre-digested
+     *    peptide sequences. In this case, the enzyme for the algorithm is
+     *    "no cleave" but we want to load a param file that reflects the enzyme
+     *    used in the actual experiments that generated the spectra.
+     */
+    
+    private boolean allowPrefixMatches;
+    private Enzyme preDigestEnzyme;
+    
+    /*
+     * +++End CWRU-CPB 
+     */
+    
     public SearchParams() {
     }
 
@@ -181,6 +199,27 @@ public class SearchParams {
     public double getChargeCarrierMass() {
         return chargeCarrierMass;
     }
+    
+    /* +++Start CWRU-CPB 
+     *
+     * Getter for allowPrefixMatches search parameter. See the dbSearch method
+     * of DBScanner.java for where this takes effect.
+     */
+    public boolean getPrefixMatchesAllowed() {
+        return allowPrefixMatches;
+    }
+    
+    /*
+     * Getter for pre-digest enzyme. The pre-digest enzyme is supposed to 
+     * reflect the enzyme used in the actual experiments that generated the
+     * spectrum files.
+     */
+    public Enzyme getPreDigestEnzyme() {
+        return preDigestEnzyme;
+    }
+    /* 
+     * +++End CWRU-CPB 
+     */
 
     public String parse(ParamManager paramManager) {
         // Charge carrier mass
@@ -317,6 +356,22 @@ public class SearchParams {
 
         minDeNovoScore = paramManager.getIntValue("minDeNovoScore");
 
+        /* +++Start CWRU-CPB
+         *
+         * Add the command line switch value for allowing prefix matches to the
+         * search parameters.
+         */
+        allowPrefixMatches = paramManager.getBooleanValue("prefixMatchesAllowed");
+        
+        /*
+         * Add the command line switch value specifying the pre-digest enzyme
+         * to the search parameters.
+         */
+        preDigestEnzyme = paramManager.getPreDigestEnzyme();
+        /*
+         * +++End CWRU-CPB 
+         */
+        
         return null;
     }
 
@@ -360,7 +415,20 @@ public class SearchParams {
         } else {
             buf.append(" (custom)");
         }
-
+        
+        /* +++Start CWRU-CPB 
+         *
+         * Add parameters for searching pre-digested peptide databases to the 
+         * output.
+         **/
+        buf.append("\n");
+        buf.append("\tAllowPrefixMatches: "+this.allowPrefixMatches+"\n");
+        buf.append("\tIgnoreMethionineCleavages: "+this.ignoreMetCleavage+"\n");
+        buf.append("\tPre-Digest Enzyme: " + (preDigestEnzyme == null ? "null" : this.preDigestEnzyme.getName()) + "\n");
+        /*
+         *+++End CWRU-CPB 
+         */
+        
         return buf.toString();
     }
 }

@@ -243,7 +243,26 @@ public class MSGFPlus {
         System.out.println(params.toString());
 
         SpecDataType specDataType = new SpecDataType(activationMethod, instType, enzyme, protocol);
-
+        
+        /*+++ Start CWRU-CPB 
+         * If searching a pre-digested database of peptides, the enzyme passed 
+         * using the -e swtich will be "no cleave".
+         *
+         * This is problematic because we want to use the builtin param files 
+         * that match the actual experiment (which means the software needs to
+         * know what enzyme was used for protein digestion). 
+         *
+         * A second enzyme can be specified using the -pde switch (Pre-digest 
+         * enzyme) and this enzyme is added to the spectrum data type if we are
+         * searching a database of pre-digested peptides.
+         */
+        if(!params.getPrefixMatchesAllowed()) {
+           Enzyme preDigestEnzyme = params.getPreDigestEnzyme();
+           System.out.printf("Pre-digested peptide search will pass enzyme %s to spectrum data pre-processing\n",preDigestEnzyme.getName());
+           specDataType = new SpecDataType(activationMethod, instType, preDigestEnzyme, protocol);
+        }
+        /*+++End CWRU-CPB */
+        
         List<MSGFPlusMatch> resultList = Collections.synchronizedList(new ArrayList<MSGFPlusMatch>());
 
         int toIndexGlobal = specSize;
