@@ -47,6 +47,8 @@ public class Spectrum extends ArrayList<Peak> implements Comparable<Spectrum> {
 //	private Float fractionIonCurrent = null;
 //	private Integer numMS1Features = null;
 
+    private ArrayList<CvParamInfo> addlCvParams;
+
     private Float isolationWindowTargetMz = null;
 
     /***** CONSTRUCTORS *****/
@@ -268,6 +270,14 @@ public class Spectrum extends ArrayList<Peak> implements Comparable<Spectrum> {
         return this.msLevel;
     }
 
+    /**
+     * Gets additional cvParams to output as cvParams under the mzIdentML SpectrumIdentificationResult
+     * @return cvParam necessary info
+     */
+    public ArrayList<CvParamInfo> getAddlCvParams() {
+        return this.addlCvParams;
+    }
+
     /***** SETTERS *****/
 
     /**
@@ -289,9 +299,9 @@ public class Spectrum extends ArrayList<Peak> implements Comparable<Spectrum> {
     }
 
     /**
-     * Sets the annotation with a Sequence object.
+     * Sets the annotation with a Sequence string.
      *
-     * @param annotation annotation object.
+     * @param seq annotation object.
      */
     public void addSEQ(String seq) {
         if (seqList == null)
@@ -338,7 +348,7 @@ public class Spectrum extends ArrayList<Peak> implements Comparable<Spectrum> {
     /**
      * Sets the spectrum index of this spectrum.
      *
-     * @param scanNum scan spectrum index.
+     * @param specIndex scan spectrum index.
      */
     public void setSpecIndex(int specIndex) {
         this.specIndex = specIndex;
@@ -494,6 +504,18 @@ public class Spectrum extends ArrayList<Peak> implements Comparable<Spectrum> {
 
         if (ticBelowPrecursor / tic > 0.9f)
             precursor.setCharge(1);
+    }
+    
+    /**
+     * Add an additional cvParam to output as a cvParam under the mzIdentML SpectrumIdentificationResult
+     * @param cvParam
+     */
+    public void addAddlCvParam(CvParamInfo cvParam) {
+        if (addlCvParams == null){
+            addlCvParams = new ArrayList<CvParamInfo>();
+        }
+
+        addlCvParams.add(cvParam);
     }
 
     /****** FUNCTIONS *****/

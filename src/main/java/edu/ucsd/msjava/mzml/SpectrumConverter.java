@@ -1,6 +1,7 @@
 package edu.ucsd.msjava.mzml;
 
 import edu.ucsd.msjava.msutil.ActivationMethod;
+import edu.ucsd.msjava.msutil.CvParamInfo;
 import edu.ucsd.msjava.msutil.Peak;
 import uk.ac.ebi.jmzml.model.mzml.*;
 
@@ -42,20 +43,34 @@ public class SpectrumConverter {
         float precursorMz = -1;
         float scanStartTime = -1;
         boolean scanStartTimeIsSeconds = true;
+
         // Scan list to get monoisotopic m/z
         ScanList scanList = jmzMLSpec.getScanList();
-        if (scanList != null && scanList.getCount().intValue() > 0
-                && scanList.getScan().size() > 0 && scanList.getScan().get(0).getUserParam().size() > 0) {
+        if (scanList != null && scanList.getCount().intValue() > 0 && scanList.getScan().size() > 0) {
             for (CVParam cvParam : scanList.getScan().get(0).getCvParam()) {
                 if (cvParam.getAccession().equals("MS:1000016")) {
                     scanStartTime = Float.parseFloat(cvParam.getValue());
                     if (cvParam.getUnitAccession().equals("UO:0000031")) {
-                        //in minutes
+                        // in minutes
                         scanStartTimeIsSeconds = false;
                     } else if (cvParam.getUnitAccession().equals("UO:0000010")) {
-                        //in seconds
+                        // in seconds
                         scanStartTimeIsSeconds = true;
                     }
+                }
+                // is_a: MS:1002892 ! ion mobility attribute cvParams
+                else if (cvParam.getAccession().equals("MS:1001581")      // FAIMS compensation voltage
+                        || cvParam.getAccession().equals("MS:1002476")    // ion mobility drift time
+                        || cvParam.getAccession().equals("MS:1002815")) { // inverse reduced ion mobility
+                    CvParamInfo cvParamInfo;
+                    if (cvParam.getUnitAccession() != null && !cvParam.getUnitAccession().isEmpty()) {
+                        cvParamInfo = new CvParamInfo(cvParam.getAccession(), cvParam.getName(), cvParam.getValue(), cvParam.getUnitAccession(), cvParam.getUnitName());
+                    }
+                    else {
+                        cvParamInfo = new CvParamInfo(cvParam.getAccession(), cvParam.getName(), cvParam.getValue());
+                    }
+
+                    spec.addAddlCvParam(cvParamInfo);
                 }
             }
             for (UserParam param : scanList.getScan().get(0).getUserParam()) {
@@ -103,7 +118,7 @@ public class SpectrumConverter {
                 } else if (param.getAccession().equals("MS:1000042"))    // peak intensity
                 {
                     precursorIntensity = Float.parseFloat(param.getValue());
-                }    //MS:1000511
+                }
             }
 
             spec.setPrecursor(new Peak(precursorMz, precursorIntensity, precursorCharge));

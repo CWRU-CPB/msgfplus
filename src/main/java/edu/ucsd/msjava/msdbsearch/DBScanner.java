@@ -17,7 +17,7 @@ public class DBScanner {
 
     private int minPeptideLength;
     private int maxPeptideLength;
-
+    private int maxMissedCleavages;
     private int maxNumVariantsPerPeptide;
 
     private AminoAcidSet aaSet;
@@ -56,7 +56,8 @@ public class DBScanner {
             int maxPeptideLength,
             int maxNumVariantsPerPeptide,
             int minDeNovoScore,
-            boolean ignoreNTermMetCleavage
+            boolean ignoreNTermMetCleavage,
+            int maxMissedCleavages
     ) {
         this.specScanner = specScanner;
         this.sa = sa;
@@ -66,6 +67,7 @@ public class DBScanner {
         this.numPeptidesPerSpec = numPeptidesPerSpec;
         this.minPeptideLength = minPeptideLength;
         this.maxPeptideLength = maxPeptideLength;
+        this.maxMissedCleavages = maxMissedCleavages;
         this.maxNumVariantsPerPeptide = maxNumVariantsPerPeptide;
         this.minDeNovoScore = minDeNovoScore;
         this.ignoreNTermMetCleavage = ignoreNTermMetCleavage;
@@ -189,9 +191,9 @@ public class DBScanner {
 
         CandidatePeptideGrid candidatePepGrid;
         if (enzyme != null && !ignoreNTermMetCleavage)
-            candidatePepGrid = new CandidatePeptideGridConsideringMetCleavage(aaSet, maxPeptideLength, maxNumVariantsPerPeptide);
+            candidatePepGrid = new CandidatePeptideGridConsideringMetCleavage(aaSet, enzyme, maxPeptideLength, maxNumVariantsPerPeptide, maxMissedCleavages);
         else
-            candidatePepGrid = new CandidatePeptideGrid(aaSet, maxPeptideLength, maxNumVariantsPerPeptide);
+            candidatePepGrid = new CandidatePeptideGrid(aaSet, enzyme, maxPeptideLength, maxNumVariantsPerPeptide, maxMissedCleavages);
 
         int peptideLengthIndex = Integer.MAX_VALUE - 1000;
 
@@ -492,6 +494,24 @@ public class DBScanner {
                         if (Thread.currentThread().isInterrupted()) {
                             return;
                         }
+
+                        /*
+                         * Check for edge case where peptides derived from the
+                         * start of a protien sequence containing an N-terminus
+                         * methionine may have more missed cleavages than the
+                         * peptides derived from removing the methionine when
+                         * digesting with N-term enzymes.
+                         *
+                         * E.g., a grid that considers methionine cleavage on
+                         * protein sequence 'MDT' will return peptides
+                         * ['MDT','DT']. If we are using AspN as the enzyme
+                         * the MDT peptide has one missed cleavage and the DT
+                         * peptide has zero. We want to skip the peptides that
+                         * are over the maximum number of missed cleavages.
+                         *
+                         */
+                        if (candidatePepGrid.gridIsOverMaxMissedCleavages(j))
+                            continue;
 
                         float theoPeptideMass = candidatePepGrid.getPeptideMass(j);
 //						/// Debug
@@ -961,12 +981,15 @@ public class DBScanner {
         }
         for (int i = 0; i < 128; i++) {
             if (!aaSet.contains((char) i) && aaCount[i] > 0) {
-                System.out.println("Warning: Sequence database contains " + aaCount[i] + " counts of letter '" + (char) i + "', which does not correspond to an amino acid.");
+                System.out.println("Warning: Sequence database contains " +
+                        aaCount[i] + " counts of letter '" + (char) i +
+                        "', which does not correspond to an amino acid.");
             }
         }
 
         if (!success) {
-            System.out.println("Warning: database does not contain all standard amino acids. Probability 0.05 will be used for all amino acids.");
+            System.out.println("Warning: database does not contain all standard amino acids. " +
+                    "Probability 0.05 will be used for all amino acids.");
             for (AminoAcid aa : aaSet.getAllAminoAcidArr())
                 aa.setProbability(0.05f);
         }

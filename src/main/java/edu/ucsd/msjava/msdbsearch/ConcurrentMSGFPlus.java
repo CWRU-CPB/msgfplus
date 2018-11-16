@@ -5,6 +5,7 @@ import edu.ucsd.msjava.misc.ProgressReporter;
 
 import java.io.PrintStream;
 import java.util.List;
+
 import org.apache.commons.io.output.NullOutputStream;
 
 public class ConcurrentMSGFPlus {
@@ -48,7 +49,8 @@ public class ConcurrentMSGFPlus {
                     params.getMaxPeptideLength(),
                     params.getMaxNumVariatsPerPeptide(),
                     params.getMinDeNovoScore(),
-                    params.ignoreMetCleavage()
+                    params.ignoreMetCleavage(),
+                    params.getMaxMissedCleavages()
             );
             this.resultList = resultList;
             this.taskNum = taskNum;
@@ -67,14 +69,14 @@ public class ConcurrentMSGFPlus {
             if (progress == null) {
                 progress = new ProgressData();
             }
-            
+
             PrintStream output;
             if (params.getVerbose()) {
                 output = System.out;
             } else {
                 output = new PrintStream(new NullOutputStream());
             }
-            
+
             progress.stepRange(5.0);
             String threadName = Thread.currentThread().getName();
             output.println(threadName + ": Starting task " + taskNum);
@@ -144,7 +146,7 @@ public class ConcurrentMSGFPlus {
 
             scanner.getProgressObj().setParentProgressObj(null);
             progress.stepRange(100);
-            
+
             if (Thread.currentThread().isInterrupted()) {
                 return;
             }

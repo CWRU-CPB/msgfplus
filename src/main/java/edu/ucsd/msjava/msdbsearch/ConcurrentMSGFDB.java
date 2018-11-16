@@ -95,7 +95,7 @@ public class ConcurrentMSGFDB {
         public RunMSGFDB(
                 ScoredSpectraMap specScanner, CompactSuffixArray sa, Enzyme enzyme, AminoAcidSet aaSet, int numPeptidesPerSpec, int minPeptideLength, int maxPeptideLength, int numberOfAllowableNonEnzymaticTermini, boolean storeScoreDist, List<MSGFDBResultGenerator.DBMatch> gen, String specFileName, boolean replicateMergedResults, boolean allowPrefixMatches) {
             this.specScanner = specScanner;
-            this.scanner = new DBScanner(specScanner, sa, enzyme, aaSet, numPeptidesPerSpec, minPeptideLength, maxPeptideLength, Constants.NUM_VARIANTS_PER_PEPTIDE, 0, false);
+            this.scanner = new DBScanner(specScanner, sa, enzyme, aaSet, numPeptidesPerSpec, minPeptideLength, maxPeptideLength, Constants.NUM_VARIANTS_PER_PEPTIDE, 0, false, -1);
             this.numberOfAllowableNonEnzymaticTermini = numberOfAllowableNonEnzymaticTermini;
             this.storeScoreDist = storeScoreDist;
             this.specFileName = specFileName;

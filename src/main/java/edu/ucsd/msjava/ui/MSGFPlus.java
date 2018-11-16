@@ -12,6 +12,7 @@ import edu.ucsd.msjava.params.ParamManager;
 import edu.ucsd.msjava.sequences.Constants;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -21,8 +22,8 @@ import java.util.logging.Logger;
 
 
 public class MSGFPlus {
-    public static final String VERSION = "Release (v2018.04.09)";
-    public static final String RELEASE_DATE = "9 April 2018";
+    public static final String VERSION = "Release (v2018.10.15)";
+    public static final String RELEASE_DATE = "15 October 2018";
 
     public static final String DECOY_DB_EXTENSION = ".revCat.fasta";
     public static final String DECOY_PROTEIN_PREFIX = "XXX";
@@ -162,7 +163,8 @@ public class MSGFPlus {
 
         File dbIndexDir = params.getDBIndexDir();
         if (dbIndexDir != null) {
-            File newDBFile = new File(dbIndexDir.getPath() + File.separator + databaseFile.getName());
+
+            File newDBFile = new File(Paths.get(dbIndexDir.getPath(), databaseFile.getName()).toString());
             if (!useTDA) {
                 if (!newDBFile.exists()) {
                     System.out.println("Creating " + newDBFile.getPath() + ".");
@@ -175,7 +177,10 @@ public class MSGFPlus {
         if (useTDA) {
             String dbFileName = databaseFile.getName();
             String concatDBFileName = dbFileName.substring(0, dbFileName.lastIndexOf('.')) + DECOY_DB_EXTENSION;
-            File concatTargetDecoyDBFile = new File(databaseFile.getAbsoluteFile().getParent() + File.separator + concatDBFileName);
+
+            String concatDBFilePath = Paths.get(databaseFile.getAbsoluteFile().getParent(), concatDBFileName).toString();
+            File concatTargetDecoyDBFile = new File(concatDBFilePath);
+
             if (!concatTargetDecoyDBFile.exists()) {
                 System.out.println("Creating " + concatTargetDecoyDBFile.getPath() + ".");
                 if (ReverseDB.reverseDB(databaseFile.getPath(), concatTargetDecoyDBFile.getPath(), true, DECOY_PROTEIN_PREFIX) == false) {

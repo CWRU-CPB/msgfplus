@@ -12,7 +12,7 @@ import java.util.Map.Entry;
 
 
 public class ParamManager {
-    private LinkedHashMap<String, Parameter> params;
+    private CaseInsensitiveLinkedHashMapParam params;
     private String toolName;
     private String version;
     private String date;
@@ -24,7 +24,7 @@ public class ParamManager {
         this.version = version;
         this.date = date;
         this.command = command;
-        params = new LinkedHashMap<String, Parameter>();
+        params = new CaseInsensitiveLinkedHashMapParam();
     }
 
     public boolean addParameter(Parameter param) {
@@ -61,7 +61,9 @@ public class ParamManager {
     }
 
     public void printUsageInfo() {
+        System.out.println();
         System.out.println(this.toolName + " " + this.version + " (" + this.date + ")");
+        System.out.println();
         System.out.println("Usage: " + this.command);
 
         ArrayList<Parameter> optParams = new ArrayList<Parameter>();
@@ -85,8 +87,12 @@ public class ParamManager {
                 System.out.println("\t   " + param.getAdditionalDescription());
         }
 
+        System.out.println();
         for (String example : examples)
             System.out.println(example);
+
+        System.out.println();
+        System.out.println("Documentation: https://github.com/MSGFPlus/msgfplus");
     }
 
     public void printValues() {
@@ -104,7 +110,7 @@ public class ParamManager {
         }
 
         if (argv.length < 2 || argv.length % 2 != 0) {
-            return "The number of parameters must be even.";
+            return "The number of parameters must be even. If a file path has a space, surround it with double quotes.";
         }
 
         for (int i = 0; i < argv.length; i += 2) {
@@ -119,7 +125,7 @@ public class ParamManager {
                     String error = param.parse(argv[i + 1]);
                     if (error != null) {
                         String err = "Invalid value for parameter " + argv[i] + ": " + argv[i + 1];
-                        err += " (" + error + ")";
+                        err += "\n        (" + error + ")";
                         return err;
                     }
                     param.setValueAssigned();
@@ -148,7 +154,7 @@ public class ParamManager {
     }
 
     public void addDBFileParam() {
-        addDBFileParam("d", "*.fasta or *.fa", false);
+        addDBFileParam("d", "*.fasta or *.fa or *.faa", false);
     }
 
     public void addDBFileParam(String key, String description, boolean isOptional) {
@@ -163,7 +169,7 @@ public class ParamManager {
 
     public void addPMTolParam() {
         ToleranceParameter pmTolParam = new ToleranceParameter("t", "ParentMassTolerance", "e.g. 2.5Da, 30ppm or 0.5Da,2.5Da");
-        pmTolParam.setAdditionalDescription("Use comma to set asymmetric values. E.g. \"-t 0.5Da,2.5Da\" will set 0.5Da to the left (expMass<theoMass) and 2.5Da to the right (expMass>theoMass)");
+        pmTolParam.setAdditionalDescription("Use a comma to set asymmetric values. E.g. \"-t 0.5Da,2.5Da\" will set 0.5Da to the left (expMass<theoMass) and 2.5Da to the right (expMass>theoMass)");
         addParameter(pmTolParam);
     }
 
@@ -271,7 +277,7 @@ public class ParamManager {
     }
 
     public void addModFileParam() {
-        FileParameter modParam = new FileParameter("mod", "ModificationFileName", "Modification file, Default: standard amino acids with fixed C+57");
+        FileParameter modParam = new FileParameter("mod", "ModificationFileName", "Modification file, Default: standard amino acids with fixed C+57; only if -mod is not specified");
         modParam.setAsOptional();
         modParam.fileMustExist();
         addParameter(modParam);
@@ -281,19 +287,24 @@ public class ParamManager {
      * Add parameters for MS-GF+
      */
     public void addMSGFPlusParams() {
+        // -s SpectrumFile (*.mzML, *.mzXML, *.mgf, *.ms2, *.pkl or *_dta.txt)
         addSpecFileParam();
+
+        // -d DatabaseFile (*.fasta or *.fa)
         addDBFileParam();
+
+        // [-o OutputFile (*.mzid)] (Default: [SpectrumFileName].mzid)
         addMzIdOutputFileParam();
 
         ToleranceParameter pmTolParam = new ToleranceParameter("t", "PrecursorMassTolerance", "e.g. 2.5Da, 20ppm or 0.5Da,2.5Da, Default: 20ppm");
         pmTolParam.defaultValue("20ppm");
-        pmTolParam.setAdditionalDescription("Use comma to set asymmetric values. E.g. \"-t 0.5Da,2.5Da\" will set 0.5Da to the minus (expMass<theoMass) and 2.5Da to plus (expMass>theoMass)");
+        pmTolParam.setAdditionalDescription("Use a comma to set asymmetric values. E.g. \"-t 0.5Da,2.5Da\" will set 0.5Da to the left (ObsMass < TheoMass) and 2.5Da to the right (ObsMass > TheoMass)");
         addParameter(pmTolParam);
 
         IntRangeParameter isotopeRange = new IntRangeParameter("ti", "IsotopeErrorRange", "Range of allowed isotope peak errors, Default:0,1");
-        isotopeRange.setAdditionalDescription("Takes into account of the error introduced by chooosing a non-monoisotopic peak for fragmentation.\n" +
+        isotopeRange.setAdditionalDescription("Takes into account the error introduced by choosing a non-monoisotopic peak for fragmentation.\n" +
                 "\t   The combination of -t and -ti determines the precursor mass tolerance.\n" +
-                "\t   E.g. \"-t 20ppm -ti -1,2\" tests abs(exp-calc-n*1.00335Da)<20ppm for n=-1, 0, 1, 2.");
+                "\t   E.g. \"-t 20ppm -ti -1,2\" tests abs(ObservedPepMass - TheoreticalPepMass - n * 1.00335Da) < 20ppm for n = -1, 0, 1, 2.");
         isotopeRange.setMaxInclusive();
         isotopeRange.defaultValue("0,1");
         addParameter(isotopeRange);
@@ -305,9 +316,9 @@ public class ParamManager {
 
         IntParameter numTasksParam = new IntParameter("tasks", "NumTasks", "Override the number of tasks to use on the threads, Default: (internally calculated based on inputs)");
         numTasksParam.setAdditionalDescription("More tasks than threads will reduce the memory requirements of the search, but will be slower (how much depends on the inputs).\n" +
-                "\t   1<=tasks<=numThreads: will create one task per thread, which is the original behavior.\n" +
-                "\t   tasks=0: use default calculation - minimum of: (threads*3) and (numSpectra/250).\n" +
-                "\t   tasks<0: multiply number of threads by abs(tasks) to determine number of tasks (i.e., -2 => \"2 * numThreads\" tasks).\n" +
+                "\t   1 <= tasks <= numThreads: will create one task per thread, which is the original behavior.\n" +
+                "\t   tasks = 0: use default calculation - minimum of: (threads*3) and (numSpectra/250).\n" +
+                "\t   tasks < 0: multiply number of threads by abs(tasks) to determine number of tasks (i.e., -2 means \"2 * numThreads\" tasks).\n" +
                 "\t   One task per thread will use the most memory, but will usually finish the fastest.\n" +
                 "\t   2-3 tasks per thread will use comparably less memory, but may cause the search to take 1.5 to 2 times as long.");
         numTasksParam.defaultValue(0);
@@ -315,13 +326,13 @@ public class ParamManager {
         addParameter(numTasksParam);
 
         EnumParameter verboseOutputParam = new EnumParameter("verbose");
-        verboseOutputParam.registerEntry("report total progress only").setDefault();
-        verboseOutputParam.registerEntry("report total and per-thread progress/status");
+        verboseOutputParam.registerEntry("Report total progress only").setDefault();
+        verboseOutputParam.registerEntry("Report total and per-thread progress/status");
         addParameter(verboseOutputParam);
 
         EnumParameter tdaParam = new EnumParameter("tda");
-        tdaParam.registerEntry("don't search decoy database").setDefault();
-        tdaParam.registerEntry("search decoy database");
+        tdaParam.registerEntry("Don't search decoy database").setDefault();
+        tdaParam.registerEntry("Search decoy database");
         addParameter(tdaParam);
 
         addFragMethodParam(ActivationMethod.ASWRITTEN, true);
@@ -372,18 +383,24 @@ public class ParamManager {
         addParameter(numMatchesParam);
 
         EnumParameter addFeatureParam = new EnumParameter("addFeatures");
-        addFeatureParam.registerEntry("output basic scores only").setDefault();
-        addFeatureParam.registerEntry("output additional features");
+        addFeatureParam.registerEntry("Output basic scores only").setDefault();
+        addFeatureParam.registerEntry("Output additional features");
         addParameter(addFeatureParam);
-        
+
         DoubleParameter chargeCarrierMassParam = new DoubleParameter("ccm", "ChargeCarrierMass", "Mass of charge carrier, Default: mass of proton (1.00727649)");
         chargeCarrierMassParam.minValue(0.1);
         chargeCarrierMassParam.setMaxInclusive();
         chargeCarrierMassParam.defaultValue(Composition.PROTON);
         addParameter(chargeCarrierMassParam);
 
-        addExample("Example (high-precision): java -Xmx3500M -jar MSGFPlus.jar -s test.mzXML -d IPI_human_3.79.fasta -t 20ppm -ti -1,2 -ntt 2 -tda 1 -o testMSGFPlus.mzid");
-        addExample("Example (low-precision): java -Xmx3500M -jar MSGFPlus.jar -s test.mzXML -d IPI_human_3.79.fasta -t 0.5Da,2.5Da -ntt 2 -tda 1 -o testMSGFPlus.mzid");
+        /* Maximum number of missed cleavages to allow on searched peptides */
+        IntParameter maxMissedCleavages = new IntParameter("maxMissedCleavages", "Count", "Exclude peptides with more than this number of missed cleavages from the search, Default: -1 (no limit)");
+        maxMissedCleavages.minValue(-1);
+        maxMissedCleavages.defaultValue(-1);
+        addParameter(maxMissedCleavages);
+
+        addExample("Example (high-precision): java -Xmx3500M -jar MSGFPlus.jar -s test.mzML -d IPI_human_3.79.fasta -inst 1 -t 20ppm -ti -1,2 -ntt 2 -tda 1 -o testMSGFPlus.mzid");
+        addExample("Example (low-precision):  java -Xmx3500M -jar MSGFPlus.jar -s test.mzML -d IPI_human_3.79.fasta -inst 0 -t 0.5Da,2.5Da    -ntt 2 -tda 1 -o testMSGFPlus.mzid");
 
         /* +++Start CWRU-CPB
          * Added command line parameter to disable prefix matches so that only
@@ -431,8 +448,8 @@ public class ParamManager {
 //		addParameter(showDecoyParam);
 
         EnumParameter edgeScoreParam = new EnumParameter("edgeScore");
-        edgeScoreParam.registerEntry("use edge scoring").setDefault();
-        edgeScoreParam.registerEntry("do not use edge scoring");
+        edgeScoreParam.registerEntry("Use edge scoring").setDefault();
+        edgeScoreParam.registerEntry("Do not use edge scoring");
         edgeScoreParam.setHidden();
         addParameter(edgeScoreParam);
 
@@ -447,8 +464,8 @@ public class ParamManager {
         addParameter(isoParam);
 
         EnumParameter metCleavageParam = new EnumParameter("ignoreMetCleavage");
-        metCleavageParam.registerEntry("consider protein N-term Met cleavage").setDefault();
-        metCleavageParam.registerEntry("ignore protein N-term Met cleavage");
+        metCleavageParam.registerEntry("Consider protein N-term Met cleavage").setDefault();
+        metCleavageParam.registerEntry("Ignore protein N-term Met cleavage");
         /* +++Start CWRU-CPB
          * Unhide this parameter as we need to specify it as false when 
          * searching a database of pre-digested peptides.
@@ -530,8 +547,8 @@ public class ParamManager {
         addExample("Example (high-precision): java -Xmx4G -cp MSGFPlus.jar edu.ucsd.msjava.ui.ScoringParamGen -i resultsFolder -d spectraFolder -m 2 -e 1 -protocol 5 -thread 4 -dropErrors 1");
 
         EnumParameter mgfParam = new EnumParameter("mgf");
-        mgfParam.registerEntry("do not create annotated mgf").setDefault();
-        mgfParam.registerEntry("create annotated mgf");
+        mgfParam.registerEntry("Do not create annotated mgf").setDefault();
+        mgfParam.registerEntry("Create annotated mgf");
         mgfParam.setHidden();
         addParameter(mgfParam);
 
@@ -556,8 +573,8 @@ public class ParamManager {
         addParameter(numThreadParam);
 
         EnumParameter tdaParam = new EnumParameter("tda");
-        tdaParam.registerEntry("don't search decoy database").setDefault();
-        tdaParam.registerEntry("search decoy database to compute FDR");
+        tdaParam.registerEntry("Don't search decoy database").setDefault();
+        tdaParam.registerEntry("Search decoy database to compute FDR");
         addParameter(tdaParam);
 
         addFragMethodParam();
@@ -615,7 +632,6 @@ public class ParamManager {
         uniformAAProb.registerEntry("use amino acid probabilities computed from the input database").setDefault();
         uniformAAProb.registerEntry("use probability 0.05 for all amino acids");
         addParameter(uniformAAProb);
-
 
         addExample("Example (high-precision): java -Xmx2000M -jar MSGFDB.jar -s test.mzXML -d IPI_human_3.79.fasta -t 30ppm -c13 1 -nnet 0 -tda 1 -o testMSGFDB.tsv");
         addExample("Example (low-precision): java -Xmx2000M -jar MSGFDB.jar -s test.mzXML -d IPI_human_3.79.fasta -t 0.5Da,2.5Da -nnet 0 -tda 1 -o testMSGFDB.tsv");
@@ -892,6 +908,7 @@ public class ParamManager {
         if (errMessage == null) {
             paramManager.printValues();
         } else {
+            System.out.println();
             System.err.println("[Error] " + errMessage);
             System.out.println();
             paramManager.printUsageInfo();

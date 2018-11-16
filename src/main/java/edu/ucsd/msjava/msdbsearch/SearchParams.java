@@ -68,7 +68,8 @@ public class SearchParams {
     /*
      * +++End CWRU-CPB 
      */
-    
+    private int maxMissedCleavages;
+
     public SearchParams() {
     }
 
@@ -221,11 +222,15 @@ public class SearchParams {
      * +++End CWRU-CPB 
      */
 
+    public int getMaxMissedCleavages() {
+        return maxMissedCleavages;
+    }
+
     public String parse(ParamManager paramManager) {
         // Charge carrier mass
         chargeCarrierMass = paramManager.getDoubleValue("ccm");
         Composition.setChargeCarrierMass(chargeCarrierMass);
-        
+
         // Spectrum file
         FileParameter specParam = paramManager.getSpecFileParam();
         File specPath = specParam.getFile();
@@ -240,7 +245,7 @@ public class SearchParams {
             if (outputFile == null) {
                 String outputFilePath = specPath.getPath().substring(0, specPath.getPath().lastIndexOf('.')) + ".mzid";
                 outputFile = new File(outputFilePath);
-//				if(outputFile.exists())
+//				if (outputFile.exists())
 //					return outputFile.getPath() + " already exists!";
             }
 
@@ -254,7 +259,7 @@ public class SearchParams {
                 if (specParam.isSupported(specFormat)) {
                     String outputFileName = f.getName().substring(0, f.getName().lastIndexOf('.')) + ".mzid";
                     File outputFile = new File(outputFileName);
-//					if(outputFile.exists())
+//					if (outputFile.exists())
 //						return outputFile.getPath() + " already exists!";
                     dbSearchIOList.add(new DBSearchIOFiles(f, specFormat, outputFile));
                 }
@@ -372,6 +377,19 @@ public class SearchParams {
          * +++End CWRU-CPB 
          */
         
+        /* Make sure max missed cleavages is valid value and that it is not
+         * being mixed with an unspecific or no-cleave enzyme
+         *
+         * String comparison to name is fragile here. It would be better if
+         * there was a stable identifier to use for the comparision.
+         */
+        maxMissedCleavages = paramManager.getIntValue("maxMissedCleavages");
+        if (maxMissedCleavages > -1 && enzyme.getName().equals("UnspecificCleavage")) {
+            return "Cannot specify a MaxMissedCleavages when using unspecific cleavage enzyme";
+        } else if (maxMissedCleavages > -1 && enzyme.getName().equals("NoCleavage")) {
+            return "Cannot specify a MaxMissedCleavages when using no cleavage enzyme";
+        }
+
         return null;
     }
 
@@ -396,14 +414,14 @@ public class SearchParams {
         buf.append("\tIsotopeError: " + this.minIsotopeError + "," + this.maxIsotopeError + "\n");
         buf.append("\tTargetDecoyAnalysis: " + this.useTDA + "\n");
         buf.append("\tFragmentationMethod: " + this.activationMethod + "\n");
-        buf.append("\tInstrument: " + (instType == null ? "null" : this.instType.getName()) + "\n");
+        buf.append("\tInstrument: " + (instType == null ? "null" : this.instType.getNameAndDescription()) + "\n");
         buf.append("\tEnzyme: " + (enzyme == null ? "null" : this.enzyme.getName()) + "\n");
         buf.append("\tProtocol: " + (protocol == null ? "null" : this.protocol.getName()) + "\n");
         buf.append("\tNumTolerableTermini: " + this.numTolerableTermini + "\n");
         buf.append("\tMinPeptideLength: " + this.minPeptideLength + "\n");
         buf.append("\tMaxPeptideLength: " + this.maxPeptideLength + "\n");
         buf.append("\tNumMatchesPerSpec: " + this.numMatchesPerSpec + "\n");
-
+        buf.append("\tMaxMissedCleavages: " + this.maxMissedCleavages + "\n");
         buf.append("\tChargeCarrierMass: " + this.chargeCarrierMass);
 
         if (Math.abs(this.chargeCarrierMass - PROTON) < 0.005) {

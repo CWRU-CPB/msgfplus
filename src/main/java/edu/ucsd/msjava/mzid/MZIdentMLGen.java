@@ -298,10 +298,24 @@ public class MZIdentMLGen {
                 sir.getCvParam().add(cvParam);
             }
 
+            if (spec.getAddlCvParams() != null) {
+                for (CvParamInfo cvParamInfo : spec.getAddlCvParams()) {
+                    CvParam cvParam = Constants.makeCvParam(cvParamInfo.getAccession(), cvParamInfo.getName());
+                    cvParam.setValue(cvParamInfo.getValue());
+                    if (cvParamInfo.getHasUnit()) {
+                        cvParam.setUnitCv(Constants.unitCV);
+                        cvParam.setUnitAccession(cvParamInfo.getUnitAccession());
+                        cvParam.setUnitName(cvParamInfo.getUnitName());
+                    }
+                    sir.getCvParam().add(cvParam);
+                }
+            }
 
             int rank = 0;
+            int resultCount = 0;
+            double prevSpecEValue = Double.NaN;
             for (int i = matchList.size() - 1; i >= 0; --i) {
-                ++rank;
+                ++resultCount;
                 DatabaseMatch match = matchList.get(i);
 
                 if (match.getDeNovoScore() < params.getMinDeNovoScore())
@@ -327,6 +341,12 @@ public class MZIdentMLGen {
                 else
                     specEValueStr = String.valueOf((float) specEValue);
 
+                // Specification: rank does not increment for equally-scored results
+                if (prevSpecEValue != specEValue) {
+                    ++rank;
+                }
+                prevSpecEValue = specEValue;
+
                 String eValueStr;
                 if (specEValue < Float.MIN_NORMAL)
                     eValueStr = String.valueOf(eValue);
@@ -344,7 +364,7 @@ public class MZIdentMLGen {
 
                 sii.setRank(rank);
                 sii.setPassThreshold(eValue <= eValueThreshold);
-                sii.setId(Constants.siiID + specIndex + "_" + rank);
+                sii.setId(Constants.siiID + specIndex + "_" + resultCount);
 
                 sii.getPeptideEvidenceRef().addAll(getPeptideEvidenceList(match, pep));
 
