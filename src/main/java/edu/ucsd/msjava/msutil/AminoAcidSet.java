@@ -1152,9 +1152,9 @@ public class AminoAcidSet implements Iterable<AminoAcid> {
              * coulf/should be broken out into a configuration file, but for the
              * time being we are only concerned with phosphorylation.
              */
-            standardAASet.addAminoAcid(AminoAcid.getCustomAminoAcid('B',"phosphoSer",166.99836));
-            standardAASet.addAminoAcid(AminoAcid.getCustomAminoAcid('U',"phosphoThe",181.01401));
-            standardAASet.addAminoAcid(AminoAcid.getCustomAminoAcid('Z',"phosphoTyr",243.02966));
+            standardAASet.addAminoAcid(AminoAcid.getCustomAminoAcid('~',"phosphoSer",166.99836));
+            standardAASet.addAminoAcid(AminoAcid.getCustomAminoAcid('*',"phosphoThe",181.01401));
+            standardAASet.addAminoAcid(AminoAcid.getCustomAminoAcid('^',"phosphoTyr",243.02966));
             /*
              * +++End CWRU-CPB
              */
